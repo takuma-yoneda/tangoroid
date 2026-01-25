@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { fetchWordDefinition } from '../services/dictionary';
 import { useWordStore } from '../stores/useWordStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -17,6 +17,15 @@ export default function NewWordScreen() {
     const addWord = useWordStore(s => s.addWord);
     const { accent } = useSettingsStore();
     const router = useRouter();
+    const { word: initialWord } = useLocalSearchParams<{ word?: string }>();
+
+    // Auto-search if word param is passed
+    useEffect(() => {
+        if (initialWord) {
+            setWord(initialWord);
+            handleSearch(initialWord);
+        }
+    }, [initialWord]);
 
     const handleTextChange = async (text: string) => {
         setWord(text);

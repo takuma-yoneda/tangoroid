@@ -1,20 +1,50 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useWordStore } from '../../stores/useWordStore';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchSuggestions } from '../../services/autocomplete';
 
 export default function WordsScreen() {
-    const { words, fetchWords, isLoading } = useWordStore();
+    const { words, fetchWords } = useWordStore();
     const router = useRouter();
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [suggestions, setSuggestions] = useState<string[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = async () => {
         setRefreshing(true);
         await fetchWords();
         setRefreshing(false);
+    };
+
+    const handleTextChange = async (text: string) => {
+        setSearchQuery(text);
+        if (text.length > 1) {
+            const results = await fetchSuggestions(text);
+            setSuggestions(results);
+        } else {
+            setSuggestions([]);
+        }
+    };
+
+    const handleSelectWord = (word: string) => {
+        setSuggestions([]);
+        setSearchQuery('');
+
+        // Check if word already exists
+        const existingWord = words.find(w => w.text.toLowerCase() === word.toLowerCase());
+        if (existingWord) {
+            // Navigate to existing word detail
+            router.push(`/word/${existingWord.id}`);
+        } else {
+            // Navigate to add new word page with pre-filled word
+            router.push({
+                pathname: '/new-word',
+                params: { word }
+            });
+        }
     };
 
     useEffect(() => {
@@ -39,13 +69,35 @@ export default function WordsScreen() {
         <View style={styles.container}>
             <View style={styles.searchContainer}>
                 <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search words..."
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    clearButtonMode="while-editing"
-                />
+                <View style={{ flex: 1, zIndex: 1 }}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search or add words..."
+                        value={searchQuery}
+                        onChangeText={handleTextChange}
+                        clearButtonMode="while-editing"
+                        returnKeyType="search"
+                        autoCapitalize="none"
+                        onSubmitEditing={() => searchQuery && handleSelectWord(searchQuery)}
+                    />
+                    {suggestions.length > 0 && (
+                        <View style={styles.suggestionsContainer}>
+                            {suggestions.map((item, index) => {
+                                const existingWord = words.find(w => w.text.toLowerCase() === item.toLowerCase());
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={styles.suggestionItem}
+                                        onPress={() => handleSelectWord(item)}
+                                    >
+                                        <Text style={styles.suggestionText}>{item}</Text>
+                                        {existingWord && <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
+                </View>
             </View>
             <FlatList
                 data={filteredWords}
@@ -77,17 +129,11 @@ export default function WordsScreen() {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Text style={styles.emptyText}>
-                            {searchQuery ? "No matches found." : "No words yet. Add one!"}
+                            {searchQuery ? "No matches found." : "No words yet. Type to add one!"}
                         </Text>
                     </View>
                 }
             />
-
-            <Link href="/new-word" asChild>
-                <TouchableOpacity style={styles.fab}>
-                    <Ionicons name="add" size={30} color="white" />
-                </TouchableOpacity>
-            </Link>
         </View>
     );
 }
@@ -117,13 +163,41 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 2,
+        zIndex: 10,
     },
     searchIcon: {
         marginRight: 10,
     },
     searchInput: {
-        flex: 1,
         height: 40,
+        fontSize: 16,
+    },
+    suggestionsContainer: {
+        position: 'absolute',
+        top: 45,
+        left: 0,
+        right: 0,
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#eee',
+        borderRadius: 8,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        maxHeight: 200,
+        zIndex: 999,
+    },
+    suggestionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    suggestionText: {
         fontSize: 16,
     },
     card: {
@@ -159,22 +233,6 @@ const styles = StyleSheet.create({
     levelText: {
         fontSize: 12,
         color: '#333',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 20,
-        right: 20,
-        backgroundColor: '#007AFF',
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
     },
     emptyContainer: {
         padding: 40,
