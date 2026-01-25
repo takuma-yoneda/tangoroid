@@ -8,15 +8,18 @@ if (!API_KEY) {
 
 const genAI = new GoogleGenerativeAI(API_KEY || "");
 
+import { useSettingsStore } from '../stores/useSettingsStore';
+
 // Using 'gemma-3' as requested. Ensure your API key has access to this model.
 // Common alternatives: 'gemini-1.5-flash', 'gemini-1.5-pro'
 // const MODEL_NAME = "gemma-3-27b-it";
-const MODEL_NAME = "gemini-flash-lite-latest";
+// const MODEL_NAME = "gemini-flash-lite-latest";
 
 export const generateReadingPassage = async (words: string[]) => {
     if (!API_KEY) throw new Error("API Key missing");
 
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const modelName = useSettingsStore.getState().aiModel;
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `
     Write a short, engaging paragraph (approx 100-150 words) that naturally incorporates the following vocabulary words: ${words.join(", ")}.
@@ -27,7 +30,7 @@ export const generateReadingPassage = async (words: string[]) => {
 
     CRITICAL INSTRUCTION:
     - In the English story, highlight the vocabulary words by wrapping them in **double asterisks**.
-    - In the Japanese translation, identify the corresponding Japanese words/phrases and highlight them by wrapping them in **double asterisks**, AND append the original English word in parentheses inside the asterisks. Format: **JapaneseWord(EnglishWord)**.
+    - In the Japanese translation, identify the corresponding Japanese words/phrases and highlight them by wrapping them in 「Japanese quotation marks」, AND append the original English word in parentheses immediately after. Format: 「日本語の単語」(EnglishWord).
     - Make very sure to write Japanese. Not Chinese.
 
     Output format:
@@ -45,11 +48,16 @@ export const generateReadingPassage = async (words: string[]) => {
         const parts = text.split("---SPLIT---");
         if (parts.length < 2) {
             // Fallback if split fails
-            return { story: text, translation: "Translation generation failed." };
+            return {
+                story: text,
+                translation: "Translation generation failed.",
+                usageMetadata: response.usageMetadata
+            };
         }
         return {
             story: parts[0].trim(),
-            translation: parts[1].trim()
+            translation: parts[1].trim(),
+            usageMetadata: response.usageMetadata
         };
     } catch (error) {
         console.error("Gemini Generation Error:", error);

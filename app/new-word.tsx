@@ -3,9 +3,11 @@ import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, ScrollVie
 import { useRouter } from 'expo-router';
 import { fetchWordDefinition } from '../services/dictionary';
 import { useWordStore } from '../stores/useWordStore';
+import { useSettingsStore } from '../stores/useSettingsStore';
 
 import { fetchSuggestions } from '../services/autocomplete';
 import { TouchableOpacity, Keyboard } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function NewWordScreen() {
     const [word, setWord] = useState('');
@@ -13,6 +15,7 @@ export default function NewWordScreen() {
     const [loading, setLoading] = useState(false);
     const [definitionData, setDefinitionData] = useState<any>(null);
     const addWord = useWordStore(s => s.addWord);
+    const { accent } = useSettingsStore();
     const router = useRouter();
 
     const handleTextChange = async (text: string) => {
@@ -39,7 +42,49 @@ export default function NewWordScreen() {
         Keyboard.dismiss();
         try {
             const data = await fetchWordDefinition(searchTerm);
-            setDefinitionData(data);
+            // Extract phonetic and audio
+            let phonetic = data.phonetic;
+            let audio = '';
+
+            if (data.phonetics && Array.isArray(data.phonetics)) {
+                // Find audio - prefer user's selected accent
+                const accentMap: Record<string, string[]> = {
+                    'us': ['-us.mp3', '-us-', 'us.mp3'],
+                    'uk': ['-uk.mp3', '-uk-', 'uk.mp3', '-gb.mp3', '-gb-', 'gb.mp3'],
+                    'au': ['-au.mp3', '-au-', 'au.mp3']
+                };
+
+                const preferredPatterns = accentMap[accent] || [];
+
+                // First try to find audio with preferred accent
+                let audioEntry = data.phonetics.find((p: any) =>
+                    p.audio && p.audio !== '' &&
+                    preferredPatterns.some(pattern => p.audio.toLowerCase().includes(pattern))
+                );
+
+                // Fallback to any audio if preferred not found
+                if (!audioEntry) {
+                    audioEntry = data.phonetics.find((p: any) => p.audio && p.audio !== '');
+                }
+
+                if (audioEntry) {
+                    audio = audioEntry.audio;
+                    // Fix protocol-relative URLs
+                    if (audio.startsWith('//')) {
+                        audio = 'https:' + audio;
+                    }
+                }
+
+                // Find phonetic text if top-level is missing
+                if (!phonetic) {
+                    const textEntry = data.phonetics.find((p: any) => p.text && p.text !== '');
+                    if (textEntry) {
+                        phonetic = textEntry.text;
+                    }
+                }
+            }
+
+            setDefinitionData({ ...data, phonetic, audio });
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -57,6 +102,8 @@ export default function NewWordScreen() {
                     definition: m.definitions[0]?.definition
                 })) || [],
                 examples: [],
+                phonetic: definitionData.phonetic,
+                audio: definitionData.audio
             };
 
             await addWord(word, processedData);
@@ -100,7 +147,10 @@ export default function NewWordScreen() {
 
             {definitionData && (
                 <View style={styles.resultContainer}>
-                    <Text style={styles.word}>{definitionData.word}</Text>
+                    <View style={styles.headerRow}>
+                        <Text style={styles.word}>{definitionData.word}</Text>
+                        {definitionData.audio && <Ionicons name="volume-medium" size={24} color="#007AFF" />}
+                    </View>
                     <Text style={styles.phonetic}>{definitionData.phonetic}</Text>
                     {definitionData.meanings?.map((m: any, index: number) => (
                         <View key={index} style={styles.meaning}>
@@ -161,6 +211,12 @@ const styles = StyleSheet.create({
     word: {
         fontSize: 24,
         fontWeight: 'bold',
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 5,
     },
     phonetic: {
         fontSize: 16,

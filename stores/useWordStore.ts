@@ -7,6 +7,8 @@ export interface Word {
     text: string;
     definitions: Definition[];
     examples: string[];
+    phonetic?: string;
+    audio?: string;
     srs: {
         interval: number;
         repetitions: number;
@@ -59,10 +61,19 @@ export const useWordStore = create<WordState>((set, get) => ({
         if (!user) {
             throw new Error("No user logged in");
         }
+
+        // Check for duplicates (case-insensitive)
+        const existingWord = get().words.find(w => w.text.toLowerCase() === text.toLowerCase());
+        if (existingWord) {
+            throw new Error(`The word "${text}" is already in your vocabulary.`);
+        }
+
         const newWord: Omit<Word, 'id'> = {
             text,
             definitions: data.definitions || [],
             examples: data.examples || [],
+            phonetic: data.phonetic || null,
+            audio: data.audio || null,
             userId: user.uid,
             createdAt: Date.now(),
             srs: {

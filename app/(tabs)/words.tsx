@@ -9,6 +9,13 @@ export default function WordsScreen() {
     const router = useRouter();
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchWords();
+        setRefreshing(false);
+    };
 
     useEffect(() => {
         fetchWords();
@@ -19,7 +26,14 @@ export default function WordsScreen() {
             w.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
             w.definitions?.[0]?.definition?.toLowerCase().includes(searchQuery.toLowerCase())
         )
-        .sort((a, b) => a.srs.interval - b.srs.interval);
+        .sort((a, b) => {
+            // Primary sort: by interval (New -> Learning -> Mastered)
+            if (a.srs.interval !== b.srs.interval) {
+                return a.srs.interval - b.srs.interval;
+            }
+            // Secondary sort: by creation date (newest first)
+            return b.createdAt - a.createdAt;
+        });
 
     return (
         <View style={styles.container}>
@@ -37,7 +51,7 @@ export default function WordsScreen() {
                 data={filteredWords}
                 keyExtractor={(item) => item.id}
                 refreshControl={
-                    <RefreshControl refreshing={isLoading} onRefresh={fetchWords} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
                 renderItem={({ item }) => {
                     const status = getStatus(item.srs.interval);

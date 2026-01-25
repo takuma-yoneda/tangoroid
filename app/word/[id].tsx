@@ -1,4 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, Button, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Button, Alert, TouchableOpacity } from 'react-native';
+import { Audio } from 'expo-av';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWordStore } from '../../stores/useWordStore';
 import { useLayoutEffect } from 'react';
@@ -11,7 +13,7 @@ export default function WordDetailScreen() {
     const word = words.find(w => w.id === id);
 
     useLayoutEffect(() => {
-        // Set title dynamically if needed, though Stack title usually comes from route config or setOptions
+        // Set title dynamically if needed
     }, [word]);
 
     if (!word) {
@@ -42,9 +44,38 @@ export default function WordDetailScreen() {
         }
     };
 
+    const playSound = async () => {
+        if (!word.audio) return;
+        try {
+            console.log('Attempting to play audio:', word.audio);
+            await Audio.setAudioModeAsync({
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false
+            });
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: word.audio },
+                { shouldPlay: true }
+            );
+            // sound.playAsync() is handled by shouldPlay: true, but calling it is fine too if we wait for load
+        } catch (error) {
+            console.error('Error playing sound', error);
+            Alert.alert("Error", "Could not play audio.");
+        }
+    };
+
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.word}>{word.text}</Text>
+            <View style={styles.header}>
+                <Text style={styles.word}>{word.text}</Text>
+                {word.audio && (
+                    <TouchableOpacity onPress={playSound} style={styles.audioButton}>
+                        <Ionicons name="volume-high" size={28} color="#007AFF" />
+                    </TouchableOpacity>
+                )}
+            </View>
+            {word.phonetic && <Text style={styles.phonetic}>{word.phonetic}</Text>}
 
             <View style={styles.section}>
                 <Text style={styles.sectionHeader}>Definitions</Text>
@@ -78,6 +109,22 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'center',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    audioButton: {
+        marginLeft: 15,
+    },
+    phonetic: {
+        textAlign: 'center',
+        fontSize: 18,
+        color: '#666',
+        marginBottom: 20,
+        fontStyle: 'italic',
     },
     section: {
         marginBottom: 20,

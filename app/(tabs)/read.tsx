@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, Button, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWordStore } from '../../stores/useWordStore';
 import { generateReadingPassage } from '../../services/gemini';
 import { generateMockPassage } from '../../services/mockData';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../services/firebase';
 
 export default function ReadScreen() {
     const { words } = useWordStore();
@@ -11,6 +13,27 @@ export default function ReadScreen() {
     const [loading, setLoading] = useState(false);
     const [targetWords, setTargetWords] = useState<string[]>([]);
     const [showTranslation, setShowTranslation] = useState(false);
+    const [usageMetadata, setUsageMetadata] = useState<any>(null);
+
+    useEffect(() => {
+        const loadSavedStory = async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                const docRef = doc(db, 'reading_practice', user.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setContent({ story: data.story, translation: data.translation });
+                    setTargetWords(data.targetWords || []);
+                    setUsageMetadata(data.usageMetadata || null);
+                }
+            } catch (e) {
+                console.log("Failed to load saved story", e);
+            }
+        };
+        loadSavedStory();
+    }, []);
 
     const handleGenerate = async (useMock = false) => {
         if (!useMock && words.length < 3) {
@@ -29,11 +52,30 @@ export default function ReadScreen() {
 
         try {
             const data = useMock ? await generateMockPassage() : await generateReadingPassage(selected);
-            setContent(data);
+            setContent({ story: data.story, translation: data.translation });
+            setUsageMetadata(data.usageMetadata || null);
+
+            const wordsToSave = useMock ? ['curious', 'explore', 'vast', 'mysterious', 'surprise'] : selected;
+
             // For mock mode, ensure we have the target words in the list so tooltip works
             if (useMock) {
-                // Add temporary mock words to targetWords just for display
-                setTargetWords(['curious', 'explore', 'vast', 'mysterious', 'surprise']);
+                setTargetWords(wordsToSave);
+            }
+
+            // Save to Firestore
+            const user = auth.currentUser;
+            if (user) {
+                try {
+                    await setDoc(doc(db, 'reading_practice', user.uid), {
+                        story: data.story,
+                        translation: data.translation,
+                        targetWords: wordsToSave,
+                        usageMetadata: data.usageMetadata || null,
+                        updatedAt: Date.now()
+                    });
+                } catch (e) {
+                    console.error("Failed to save story", e);
+                }
             }
         } catch (error: any) {
             Alert.alert("Generation Failed", "Could not generate story. Please check your API key and network.");
@@ -57,22 +99,44 @@ export default function ReadScreen() {
         return wordEntry?.definitions?.[0]?.definition || "Definition not found";
     };
 
-    // Simple parser to render bold text
+    // Simple parser to render bold text - handles both English (**word**) and Japanese (「単語」(word)) formats
     const renderPassage = (text: string) => {
-        const parts = text.split(/(\*\*.*?\*\*)/g);
+        // Match either **text** or 「text」(EnglishWord)
+        const parts = text.split(/(「[^」]+」\([^)]+\)|\*\*[^*]+\*\*)/g);
         return (
             <Text style={styles.passageText}>
                 {parts.map((part, index) => {
+                    // Japanese format: 「単語」(EnglishWord)
+                    if (part.startsWith('「') && part.includes('」(')) {
+                        const match = part.match(/「([^」]+)」\(([^)]+)\)/);
+                        if (match) {
+                            const japaneseText = match[1];
+                            const englishWord = match[2];
+                            return (
+                                <Text
+                                    key={index}
+                                    style={styles.highlight}
+                                    onPress={() => { }}
+                                    onPressIn={() => setActiveTooltip(getDefinition(englishWord))}
+                                    onPressOut={() => setActiveTooltip(null)}
+                                    suppressHighlighting={false}
+                                >
+                                    {japaneseText}
+                                </Text>
+                            );
+                        }
+                    }
+                    // English format: **word**
                     if (part.startsWith('**') && part.endsWith('**')) {
                         const wordText = part.slice(2, -2);
                         return (
                             <Text
                                 key={index}
                                 style={styles.highlight}
-                                onPress={() => { }} // Required for onPressIn/Out to work reliably on some platforms
+                                onPress={() => { }}
                                 onPressIn={() => setActiveTooltip(getDefinition(wordText))}
                                 onPressOut={() => setActiveTooltip(null)}
-                                suppressHighlighting={false} // Allow native highlight feedback
+                                suppressHighlighting={false}
                             >
                                 {wordText}
                             </Text>
@@ -138,6 +202,24 @@ export default function ReadScreen() {
                             <View style={styles.translationBox}>
                                 <Text style={styles.langLabel}>Japanese</Text>
                                 {renderPassage(content.translation)}
+                            </View>
+                        )}
+
+                        {usageMetadata && (
+                            <View style={styles.metadataBox}>
+                                <Text style={styles.metadataTitle}>Token Usage</Text>
+                                <View style={styles.metadataRow}>
+                                    <Text style={styles.metadataLabel}>Prompt:</Text>
+                                    <Text style={styles.metadataValue}>{usageMetadata.promptTokenCount || 'N/A'}</Text>
+                                </View>
+                                <View style={styles.metadataRow}>
+                                    <Text style={styles.metadataLabel}>Response:</Text>
+                                    <Text style={styles.metadataValue}>{usageMetadata.candidatesTokenCount || 'N/A'}</Text>
+                                </View>
+                                <View style={styles.metadataRow}>
+                                    <Text style={styles.metadataLabel}>Total:</Text>
+                                    <Text style={[styles.metadataValue, styles.metadataTotal]}>{usageMetadata.totalTokenCount || 'N/A'}</Text>
+                                </View>
                             </View>
                         )}
 
@@ -285,5 +367,36 @@ const styles = StyleSheet.create({
         color: '#888',
         textAlign: 'center',
         maxWidth: 250,
+    },
+    metadataBox: {
+        marginTop: 20,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    metadataTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#aaa',
+        marginBottom: 10,
+        textTransform: 'uppercase',
+    },
+    metadataRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 5,
+    },
+    metadataLabel: {
+        fontSize: 13,
+        color: '#666',
+    },
+    metadataValue: {
+        fontSize: 13,
+        color: '#333',
+        fontWeight: '500',
+    },
+    metadataTotal: {
+        fontWeight: 'bold',
+        color: '#007AFF',
     }
 });
