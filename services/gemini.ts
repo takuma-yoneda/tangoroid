@@ -19,24 +19,44 @@ export const generateReadingPassage = async (words: string[]) => {
     if (!API_KEY) throw new Error("API Key missing");
 
     const modelName = useSettingsStore.getState().aiModel;
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "object",
+                properties: {
+                    english: {
+                        type: "string",
+                        description: "English story with vocabulary words wrapped in **double asterisks**"
+                    },
+                    japanese: {
+                        type: "string",
+                        description: "Japanese translation with words highlighted as 「日本語」(EnglishWord)"
+                    }
+                },
+                required: ["english", "japanese"]
+            }
+        }
+    });
 
     const prompt = `
     Write a short, engaging paragraph (approx 100-150 words) that naturally incorporates the following vocabulary words: ${words.join(", ")}.
     
-    You MUST provide two sections separated by "---SPLIT---":
-    1. The English paragraph (Story).
-    2. A natural Japanese translation of the paragraph.
-
-    CRITICAL INSTRUCTION:
-    - In the English story, highlight the vocabulary words by wrapping them in **double asterisks**.
-    - In the Japanese translation, identify the corresponding Japanese words/phrases and highlight them by wrapping them in 「Japanese quotation marks」, AND append the original English word in parentheses immediately after. Format: 「日本語の単語」(EnglishWord).
-    - Make very sure to write Japanese. Not Chinese.
-
-    Output format:
-    [English Story]
-    ---SPLIT---
-    [Japanese Translation]
+    Return a JSON object with two fields:
+    1. "english": The English paragraph with vocabulary words wrapped in **double asterisks**.
+    2. "japanese": A natural Japanese translation with corresponding words highlighted as 「日本語の単語」(EnglishWord).
+    
+    Example format:
+    {
+      "english": "The **curious** cat began to **explore** the **vast** garden.",
+      "japanese": "「好奇心旺盛な」(curious)猫は「広大な」(vast)庭を「探検」(explore)し始めました。"
+    }
+    
+    IMPORTANT:
+    - Write natural, engaging stories
+    - Use Japanese (not Chinese) for the translation
+    - Ensure vocabulary words are properly highlighted
   `;
 
     try {
@@ -44,19 +64,12 @@ export const generateReadingPassage = async (words: string[]) => {
         const response = await result.response;
         const text = response.text();
 
-        // Manual parsing
-        const parts = text.split("---SPLIT---");
-        if (parts.length < 2) {
-            // Fallback if split fails
-            return {
-                story: text,
-                translation: "Translation generation failed.",
-                usageMetadata: response.usageMetadata
-            };
-        }
+        // Parse JSON response
+        const parsed = JSON.parse(text);
+
         return {
-            story: parts[0].trim(),
-            translation: parts[1].trim(),
+            story: parsed.english || "",
+            translation: parsed.japanese || "",
             usageMetadata: response.usageMetadata
         };
     } catch (error) {
