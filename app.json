@@ -25,7 +25,16 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Tangoroid",
+      "shortName": "Tangoroid",
+      "description": "Vocabulary learning app",
+      "backgroundColor": "#ffffff",
+      "themeColor": "#007AFF",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router"

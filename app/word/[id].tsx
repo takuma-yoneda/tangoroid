@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Button, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Button, Alert, TouchableOpacity, Platform } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -48,17 +48,21 @@ export default function WordDetailScreen() {
         if (!word.audio) return;
         try {
             console.log('Attempting to play audio:', word.audio);
-            await Audio.setAudioModeAsync({
-                playsInSilentModeIOS: true,
-                staysActiveInBackground: false,
-                shouldDuckAndroid: true,
-                playThroughEarpieceAndroid: false
-            });
-            const { sound } = await Audio.Sound.createAsync(
-                { uri: word.audio },
-                { shouldPlay: true }
-            );
-            // sound.playAsync() is handled by shouldPlay: true, but calling it is fine too if we wait for load
+            if (Platform.OS === 'web') {
+                const audio = new window.Audio(word.audio);
+                await audio.play();
+            } else {
+                await Audio.setAudioModeAsync({
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false
+                });
+                const { sound } = await Audio.Sound.createAsync(
+                    { uri: word.audio },
+                    { shouldPlay: true }
+                );
+            }
         } catch (error) {
             console.error('Error playing sound', error);
             Alert.alert("Error", "Could not play audio.");

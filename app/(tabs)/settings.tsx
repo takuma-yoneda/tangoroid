@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, Button, Alert, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Button, Alert, TouchableOpacity, Modal, ScrollView, TextInput } from 'react-native';
 import { useState } from 'react';
-import { signOut } from 'firebase/auth';
+import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useSettingsStore, AI_MODELS, ACCENTS } from '../../stores/useSettingsStore';
@@ -11,6 +11,35 @@ export default function SettingsScreen() {
     const { aiModel, setAiModel, accent, setAccent } = useSettingsStore();
     const [showModelPicker, setShowModelPicker] = useState(false);
     const [showAccentPicker, setShowAccentPicker] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleChangePassword = async () => {
+        if (newPassword !== confirmPassword) {
+            Alert.alert('Error', 'New passwords do not match.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters.');
+            return;
+        }
+        try {
+            const user = auth.currentUser;
+            if (!user || !user.email) return;
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
+            await updatePassword(user, newPassword);
+            Alert.alert('Success', 'Password updated.');
+            setShowPasswordModal(false);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        }
+    };
 
     const handleSignOut = async () => {
         try {
@@ -27,7 +56,8 @@ export default function SettingsScreen() {
             <View style={styles.section}>
                 <Text style={styles.header}>Account</Text>
                 <Text style={styles.email}>{auth.currentUser?.email}</Text>
-                <View style={{ marginTop: 10 }}>
+                <View style={{ marginTop: 10, gap: 10 }}>
+                    <Button title="Change Password" onPress={() => setShowPasswordModal(true)} />
                     <Button title="Sign Out" onPress={handleSignOut} color="#FF3B30" />
                 </View>
             </View>
@@ -106,6 +136,43 @@ export default function SettingsScreen() {
                         </ScrollView>
                         <View style={{ marginTop: 15 }}>
                             <Button title="Cancel" onPress={() => setShowAccentPicker(false)} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={showPasswordModal}
+                transparent={true}
+                animationType="slide"
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Change Password</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Current password"
+                            secureTextEntry
+                            value={currentPassword}
+                            onChangeText={setCurrentPassword}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="New password"
+                            secureTextEntry
+                            value={newPassword}
+                            onChangeText={setNewPassword}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirm new password"
+                            secureTextEntry
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                        />
+                        <View style={{ marginTop: 15, gap: 10 }}>
+                            <Button title="Update Password" onPress={handleChangePassword} />
+                            <Button title="Cancel" onPress={() => { setShowPasswordModal(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }} color="#999" />
                         </View>
                     </View>
                 </View>
@@ -198,5 +265,13 @@ const styles = StyleSheet.create({
     selectedModelText: {
         color: '#007AFF',
         fontWeight: 'bold',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        marginBottom: 10,
     }
 });
