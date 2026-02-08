@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { useAuthStore } from "../stores/useAuthStore";
+import { useWordStore } from "../stores/useWordStore";
 import { View, ActivityIndicator } from "react-native";
 
 export default function RootLayout() {
@@ -17,6 +18,9 @@ export default function RootLayout() {
             setUser(user);
             setLoading(false);
             setInitialized(true);
+            if (user) {
+                useWordStore.getState().fetchWords();
+            }
         });
         return unsubscribe;
     }, []);

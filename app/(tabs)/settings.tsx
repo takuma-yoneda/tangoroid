@@ -15,6 +15,9 @@ export default function SettingsScreen() {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const handleChangePassword = async () => {
         if (newPassword !== confirmPassword) {
@@ -36,6 +39,9 @@ export default function SettingsScreen() {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
+            setShowCurrentPassword(false);
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         }
@@ -149,30 +155,45 @@ export default function SettingsScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Change Password</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Current password"
-                            secureTextEntry
-                            value={currentPassword}
-                            onChangeText={setCurrentPassword}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="New password"
-                            secureTextEntry
-                            value={newPassword}
-                            onChangeText={setNewPassword}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Confirm new password"
-                            secureTextEntry
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                        />
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="Current password"
+                                secureTextEntry={!showCurrentPassword}
+                                value={currentPassword}
+                                onChangeText={setCurrentPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
+                                <Ionicons name={showCurrentPassword ? "eye-off" : "eye"} size={22} color="#888" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="New password"
+                                secureTextEntry={!showNewPassword}
+                                value={newPassword}
+                                onChangeText={setNewPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
+                                <Ionicons name={showNewPassword ? "eye-off" : "eye"} size={22} color="#888" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="Confirm new password"
+                                secureTextEntry={!showConfirmPassword}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                                <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={22} color="#888" />
+                            </TouchableOpacity>
+                        </View>
                         <View style={{ marginTop: 15, gap: 10 }}>
                             <Button title="Update Password" onPress={handleChangePassword} />
-                            <Button title="Cancel" onPress={() => { setShowPasswordModal(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }} color="#999" />
+                            <Button title="Cancel" onPress={() => { setShowPasswordModal(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setShowCurrentPassword(false); setShowNewPassword(false); setShowConfirmPassword(false); }} color="#999" />
                         </View>
                     </View>
                 </View>
@@ -273,5 +294,21 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 16,
         marginBottom: 10,
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: 12,
+        fontSize: 16,
+    },
+    eyeButton: {
+        padding: 12,
     }
 });
