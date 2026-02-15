@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { Platform } from 'react-native';
 
@@ -18,7 +18,12 @@ const app = initializeApp(firebaseConfig);
 // Platform-aware auth: web uses browser persistence, native uses AsyncStorage
 let auth;
 if (Platform.OS === 'web') {
-    auth = getAuth(app);
+    // Metro resolves firebase/auth to the RN bundle (due to react-native condition),
+    // which doesn't export browserLocalPersistence. Require it from the browser build.
+    const { browserLocalPersistence } = require('@firebase/auth/dist/browser-cjs/index.js');
+    auth = initializeAuth(app, {
+        persistence: browserLocalPersistence,
+    });
 } else {
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     auth = initializeAuth(app, {
