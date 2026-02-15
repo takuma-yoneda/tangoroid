@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, Button, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Button, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
 import { useWordStore } from '../../stores/useWordStore';
 import { generateReadingPassagesBatch, PassageResult } from '../../services/gemini';
 import { generateMockPassage } from '../../services/mockData';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
+import { useColors } from '../../hooks/useColors';
 
 export default function ReadScreen() {
     const { words } = useWordStore();
@@ -13,6 +14,7 @@ export default function ReadScreen() {
     const [loading, setLoading] = useState(false);
     const [showTranslation, setShowTranslation] = useState<boolean[]>([]);
     const [usageMetadata, setUsageMetadata] = useState<any>(null);
+    const colors = useColors();
 
     useEffect(() => {
         const loadSavedStories = async () => {
@@ -138,7 +140,7 @@ export default function ReadScreen() {
         }
     };
 
-    const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+    const [activeTooltip, setActiveTooltip] = useState<{ key: string; definition: string } | null>(null);
 
     const toggleTranslation = (index: number) => {
         setShowTranslation(prev => {
@@ -157,7 +159,198 @@ export default function ReadScreen() {
         return wordEntry?.definitions?.[0]?.definition || "Definition not found";
     };
 
-    const renderPassage = (text: string) => {
+    const handleWordPress = (key: string, wordText: string) => {
+        setActiveTooltip(prev =>
+            prev?.key === key ? null : { key, definition: getDefinition(wordText) }
+        );
+    };
+
+    const styles = useMemo(() => StyleSheet.create({
+        container: {
+            padding: 20,
+            backgroundColor: colors.background,
+            flexGrow: 1,
+        },
+        header: {
+            marginBottom: 20,
+            alignItems: 'center',
+        },
+        title: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            marginBottom: 5,
+            color: colors.text,
+        },
+        subtitle: {
+            fontSize: 16,
+            color: colors.textTertiary,
+        },
+        actionContainer: {
+            marginBottom: 20,
+        },
+        loadingContainer: {
+            alignItems: 'center',
+            gap: 10,
+        },
+        loadingText: {
+            color: colors.textTertiary,
+            fontSize: 14,
+        },
+        card: {
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 5,
+            elevation: 3,
+        },
+        cardHeader: {
+            marginBottom: 15,
+        },
+        cardNumber: {
+            fontSize: 14,
+            fontWeight: 'bold',
+            color: colors.primary,
+            textTransform: 'uppercase',
+        },
+        wordsList: {
+            marginBottom: 15,
+        },
+        wordsLabel: {
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: colors.textMuted,
+            marginBottom: 8,
+            textTransform: 'uppercase',
+        },
+        chipContainer: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        chip: {
+            backgroundColor: '#E3F2FD',
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 15,
+        },
+        chipText: {
+            color: '#1565C0',
+            fontSize: 12,
+            fontWeight: '600',
+        },
+        divider: {
+            height: 1,
+            backgroundColor: colors.borderLight,
+            marginBottom: 15,
+        },
+        translateContainer: {
+            marginTop: 20,
+            marginBottom: 10,
+        },
+        tooltipContainer: {
+            position: 'absolute',
+            top: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: 'rgba(0,0,0,0.95)',
+            padding: 15,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            elevation: 10,
+        },
+        tooltipText: {
+            color: 'white',
+            fontSize: 16,
+            textAlign: 'center',
+        },
+        translationBox: {
+            marginTop: 10,
+            paddingTop: 15,
+            borderTopWidth: 1,
+            borderTopColor: colors.borderLight,
+        },
+        langLabel: {
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: colors.textMuted,
+            marginBottom: 5,
+            textTransform: 'uppercase',
+        },
+        passageText: {
+            fontSize: 18,
+            lineHeight: 28,
+            color: colors.textSecondary,
+        },
+        highlight: {
+            fontWeight: 'bold',
+            color: '#E65100',
+            backgroundColor: '#FFF3E0',
+            paddingHorizontal: 2,
+        },
+        highlightActive: {
+            backgroundColor: '#FFE0B2',
+        },
+        emptyState: {
+            marginTop: 50,
+            alignItems: 'center',
+            opacity: 0.7,
+        },
+        emptyText: {
+            marginTop: 20,
+            fontSize: 16,
+            color: colors.textMuted,
+            textAlign: 'center',
+            maxWidth: 250,
+        },
+        metadataBox: {
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 5,
+            elevation: 3,
+        },
+        metadataTitle: {
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: colors.textMuted,
+            marginBottom: 10,
+            textTransform: 'uppercase',
+        },
+        metadataRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 5,
+        },
+        metadataLabel: {
+            fontSize: 13,
+            color: colors.textTertiary,
+        },
+        metadataValue: {
+            fontSize: 13,
+            color: colors.textSecondary,
+            fontWeight: '500',
+        },
+        metadataTotal: {
+            fontWeight: 'bold',
+            color: colors.primary,
+        },
+    }), [colors]);
+
+    const renderPassage = (text: string, keyPrefix: string) => {
         const parts = text.split(/(「[^」]+」\([^)]+\)|\*\*[^*]+\*\*)/g);
         return (
             <Text style={styles.passageText}>
@@ -167,14 +360,12 @@ export default function ReadScreen() {
                         if (match) {
                             const japaneseText = match[1];
                             const englishWord = match[2];
+                            const key = `${keyPrefix}-${index}`;
                             return (
                                 <Text
                                     key={index}
-                                    style={styles.highlight}
-                                    onPress={() => { }}
-                                    onPressIn={() => setActiveTooltip(getDefinition(englishWord))}
-                                    onPressOut={() => setActiveTooltip(null)}
-                                    suppressHighlighting={false}
+                                    style={[styles.highlight, activeTooltip?.key === key && styles.highlightActive]}
+                                    onPress={() => handleWordPress(key, englishWord)}
                                 >
                                     {japaneseText}
                                 </Text>
@@ -183,14 +374,12 @@ export default function ReadScreen() {
                     }
                     if (part.startsWith('**') && part.endsWith('**')) {
                         const wordText = part.slice(2, -2);
+                        const key = `${keyPrefix}-${index}`;
                         return (
                             <Text
                                 key={index}
-                                style={styles.highlight}
-                                onPress={() => { }}
-                                onPressIn={() => setActiveTooltip(getDefinition(wordText))}
-                                onPressOut={() => setActiveTooltip(null)}
-                                suppressHighlighting={false}
+                                style={[styles.highlight, activeTooltip?.key === key && styles.highlightActive]}
+                                onPress={() => handleWordPress(key, wordText)}
                             >
                                 {wordText}
                             </Text>
@@ -213,7 +402,7 @@ export default function ReadScreen() {
                 <View style={styles.actionContainer}>
                     {loading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#007AFF" />
+                            <ActivityIndicator size="large" color={colors.primary} />
                             <Text style={styles.loadingText}>Generating 3 stories...</Text>
                         </View>
                     ) : (
@@ -250,7 +439,7 @@ export default function ReadScreen() {
                         <View style={styles.divider} />
 
                         <Text style={styles.langLabel}>English</Text>
-                        {renderPassage(passage.story)}
+                        {renderPassage(passage.story, `story-${index}`)}
 
                         <View style={styles.translateContainer}>
                             <Button
@@ -262,7 +451,7 @@ export default function ReadScreen() {
                         {showTranslation[index] && (
                             <View style={styles.translationBox}>
                                 <Text style={styles.langLabel}>Japanese</Text>
-                                {renderPassage(passage.translation)}
+                                {renderPassage(passage.translation, `trans-${index}`)}
                             </View>
                         )}
                     </View>
@@ -288,198 +477,21 @@ export default function ReadScreen() {
 
                 {passages.length === 0 && !loading && (
                     <View style={styles.emptyState}>
-                        <Ionicons name="book-outline" size={64} color="#ccc" />
+                        <Ionicons name="book-outline" size={64} color={colors.disabled} />
                         <Text style={styles.emptyText}>Tap generate to practice reading in context!</Text>
                     </View>
                 )}
             </ScrollView>
 
             {activeTooltip && (
-                <View style={styles.tooltipContainer}>
-                    <Text style={styles.tooltipText}>{activeTooltip}</Text>
-                </View>
+                <TouchableOpacity
+                    style={styles.tooltipContainer}
+                    activeOpacity={0.9}
+                    onPress={() => setActiveTooltip(null)}
+                >
+                    <Text style={styles.tooltipText}>{activeTooltip.definition}</Text>
+                </TouchableOpacity>
             )}
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        padding: 20,
-        backgroundColor: '#F2F2F7',
-        flexGrow: 1,
-    },
-    header: {
-        marginBottom: 20,
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#666',
-    },
-    actionContainer: {
-        marginBottom: 20,
-    },
-    loadingContainer: {
-        alignItems: 'center',
-        gap: 10,
-    },
-    loadingText: {
-        color: '#666',
-        fontSize: 14,
-    },
-    card: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 3,
-    },
-    cardHeader: {
-        marginBottom: 15,
-    },
-    cardNumber: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#007AFF',
-        textTransform: 'uppercase',
-    },
-    wordsList: {
-        marginBottom: 15,
-    },
-    wordsLabel: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#888',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-    },
-    chipContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    chip: {
-        backgroundColor: '#E3F2FD',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 15,
-    },
-    chipText: {
-        color: '#1565C0',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#eee',
-        marginBottom: 15,
-    },
-    translateContainer: {
-        marginTop: 20,
-        marginBottom: 10,
-    },
-    tooltipContainer: {
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(0,0,0,0.95)',
-        padding: 15,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 10,
-    },
-    tooltipText: {
-        color: 'white',
-        fontSize: 16,
-        textAlign: 'center',
-    },
-    translationBox: {
-        marginTop: 10,
-        paddingTop: 15,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-    },
-    langLabel: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#aaa',
-        marginBottom: 5,
-        textTransform: 'uppercase',
-    },
-    passageText: {
-        fontSize: 18,
-        lineHeight: 28,
-        color: '#333',
-    },
-    highlight: {
-        fontWeight: 'bold',
-        color: '#E65100',
-        backgroundColor: '#FFF3E0',
-        paddingHorizontal: 2,
-    },
-    emptyState: {
-        marginTop: 50,
-        alignItems: 'center',
-        opacity: 0.7,
-    },
-    emptyText: {
-        marginTop: 20,
-        fontSize: 16,
-        color: '#888',
-        textAlign: 'center',
-        maxWidth: 250,
-    },
-    metadataBox: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 3,
-    },
-    metadataTitle: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#aaa',
-        marginBottom: 10,
-        textTransform: 'uppercase',
-    },
-    metadataRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 5,
-    },
-    metadataLabel: {
-        fontSize: 13,
-        color: '#666',
-    },
-    metadataValue: {
-        fontSize: 13,
-        color: '#333',
-        fontWeight: '500',
-    },
-    metadataTotal: {
-        fontWeight: 'bold',
-        color: '#007AFF',
-    },
-});

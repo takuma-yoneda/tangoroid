@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type AiModel = 'gemini-flash-latest' | 'gemini-flash-lite-latest' | 'gemma-3-27b-it' | 'gemma-3-12b-it' | 'gemma-3-4b-it';
 export type AccentPreference = 'us' | 'uk' | 'au';
+export type ThemePreference = 'light' | 'dark';
 
 export const AI_MODELS: AiModel[] = [
     'gemini-flash-latest',
@@ -19,11 +20,18 @@ export const ACCENTS: { label: string; value: AccentPreference }[] = [
     { label: 'Australian (AU)', value: 'au' },
 ];
 
+export const THEMES: { label: string; value: ThemePreference }[] = [
+    { label: 'Light', value: 'light' },
+    { label: 'Dark', value: 'dark' },
+];
+
 interface SettingsState {
     aiModel: AiModel;
     setAiModel: (model: AiModel) => void;
     accent: AccentPreference;
     setAccent: (accent: AccentPreference) => void;
+    theme: ThemePreference;
+    setTheme: (theme: ThemePreference) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -33,6 +41,8 @@ export const useSettingsStore = create<SettingsState>()(
             setAiModel: (model) => set({ aiModel: model }),
             accent: 'uk',
             setAccent: (accent) => set({ accent }),
+            theme: 'light',
+            setTheme: (theme) => set({ theme }),
         }),
         {
             name: 'settings-storage',

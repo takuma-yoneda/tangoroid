@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
-import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput, Image } from 'react-native';
+import { useEffect, useState, useMemo } from 'react';
 import { useWordStore } from '../../stores/useWordStore';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchSuggestions } from '../../services/autocomplete';
+import { useColors } from '../../hooks/useColors';
 
 export default function WordsScreen() {
     const { words, fetchWords } = useWordStore();
     const router = useRouter();
+    const colors = useColors();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -65,14 +67,125 @@ export default function WordsScreen() {
             return b.createdAt - a.createdAt;
         });
 
+    const styles = useMemo(() => StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        searchContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.surface,
+            margin: 15,
+            marginBottom: 5,
+            borderRadius: 10,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 2,
+            zIndex: 10,
+        },
+        searchIcon: {
+            marginRight: 10,
+        },
+        searchInput: {
+            height: 40,
+            fontSize: 16,
+            color: colors.text,
+        },
+        suggestionsContainer: {
+            position: 'absolute',
+            top: 45,
+            left: 0,
+            right: 0,
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.borderLight,
+            borderRadius: 8,
+            elevation: 10,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            maxHeight: 200,
+            zIndex: 999,
+        },
+        suggestionItem: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 15,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.borderLight,
+        },
+        suggestionText: {
+            fontSize: 16,
+            color: colors.text,
+        },
+        card: {
+            backgroundColor: colors.surface,
+            padding: 15,
+            marginHorizontal: 15,
+            marginTop: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 2,
+        },
+        wordText: {
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: colors.text,
+        },
+        defText: {
+            color: colors.textTertiary,
+            marginTop: 4,
+            maxWidth: 200,
+        },
+        levelBadge: {
+            backgroundColor: colors.border,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+        },
+        levelText: {
+            fontSize: 12,
+            color: colors.textSecondary,
+        },
+        emptyContainer: {
+            padding: 40,
+            alignItems: 'center',
+        },
+        emptyText: {
+            color: colors.textMuted,
+            fontSize: 16,
+        },
+        thumbnail: {
+            width: 40,
+            height: 40,
+            borderRadius: 6,
+            marginRight: 12,
+            backgroundColor: colors.surfaceAlt,
+        }
+    }), [colors]);
+
     return (
         <View style={styles.container}>
             <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+                <Ionicons name="search" size={20} color={colors.textTertiary} style={styles.searchIcon} />
                 <View style={{ flex: 1, zIndex: 1 }}>
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search or add words..."
+                        placeholderTextColor={colors.placeholder}
                         value={searchQuery}
                         onChangeText={handleTextChange}
                         clearButtonMode="while-editing"
@@ -112,7 +225,10 @@ export default function WordsScreen() {
                             style={styles.card}
                             onPress={() => router.push(`/word/${item.id}`)}
                         >
-                            <View>
+                            {item.imageUrl && (
+                                <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
+                            )}
+                            <View style={{ flex: 1 }}>
                                 <Text style={styles.wordText}>{item.text}</Text>
                                 {item.definitions?.[0] && (
                                     <Text style={styles.defText} numberOfLines={1}>
@@ -143,103 +259,3 @@ function getStatus(interval: number) {
     if (interval < 3) return { label: 'Learning', bg: '#FFF8E1', text: '#FFA000' };   // Amber
     return { label: 'Mastered', bg: '#E8F5E9', text: '#43A047' };                     // Green
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        margin: 15,
-        marginBottom: 5,
-        borderRadius: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-        zIndex: 10,
-    },
-    searchIcon: {
-        marginRight: 10,
-    },
-    searchInput: {
-        height: 40,
-        fontSize: 16,
-    },
-    suggestionsContainer: {
-        position: 'absolute',
-        top: 45,
-        left: 0,
-        right: 0,
-        backgroundColor: 'white',
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 8,
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        maxHeight: 200,
-        zIndex: 999,
-    },
-    suggestionItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    suggestionText: {
-        fontSize: 16,
-    },
-    card: {
-        backgroundColor: 'white',
-        padding: 15,
-        marginHorizontal: 15,
-        marginTop: 10,
-        borderRadius: 10,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    wordText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    defText: {
-        color: '#666',
-        marginTop: 4,
-        maxWidth: 200,
-    },
-    levelBadge: {
-        backgroundColor: '#e1e1e1',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    levelText: {
-        fontSize: 12,
-        color: '#333',
-    },
-    emptyContainer: {
-        padding: 40,
-        alignItems: 'center',
-    },
-    emptyText: {
-        color: '#999',
-        fontSize: 16,
-    }
-});
